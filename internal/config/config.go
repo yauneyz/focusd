@@ -115,11 +115,23 @@ func (c *Config) LoadBlocklist() ([]string, error) {
 	data, err := os.ReadFile(c.BlocklistPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			// File doesn't exist yet - this is OK, user needs to create it
-			fmt.Printf("Notice: Blocklist file not found at %s\n", c.BlocklistPath)
-			fmt.Printf("Create this file with domains to block, then reload the service.\n")
-			fmt.Printf("See blocklist.example.yml for format.\n")
-			return []string{}, nil
+			return nil, fmt.Errorf(`
+┌─────────────────────────────────────────────────────────────────┐
+│ BLOCKLIST FILE NOT FOUND                                        │
+├─────────────────────────────────────────────────────────────────┤
+│ Expected location: %s
+│                                                                 │
+│ Create this file with the following format:                    │
+│                                                                 │
+│   domains:                                                      │
+│     - youtube.com                                               │
+│     - twitter.com                                               │
+│     - reddit.com                                                │
+│                                                                 │
+│ Then reload the service:                                        │
+│   sudo systemctl reload focusd                                  │
+└─────────────────────────────────────────────────────────────────┘
+`, c.BlocklistPath)
 		}
 		return nil, fmt.Errorf("reading blocklist file %s: %w", c.BlocklistPath, err)
 	}
