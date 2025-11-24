@@ -3,7 +3,6 @@ package proxy
 import (
 	"bufio"
 	"context"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"log"
@@ -411,8 +410,8 @@ func getOriginalDst(conn net.Conn) (string, error) {
 		addr.Addr[3],
 	)
 
-	// Convert port from network byte order
-	port := binary.BigEndian.Uint16([]byte{byte(addr.Port >> 8), byte(addr.Port & 0xff)})
+	// Port is stored as uint16 in network byte order, swap bytes to get host byte order
+	port := (addr.Port >> 8) | (addr.Port << 8)
 
 	return fmt.Sprintf("%s:%d", ip.String(), port), nil
 }
