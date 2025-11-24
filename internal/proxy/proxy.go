@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -201,16 +202,25 @@ func (p *TransparentProxy) handleHTTP(clientConn net.Conn) {
 		return
 	}
 
+	var requestBuffer bytes.Buffer
+	requestBuffer.WriteString(requestLine)
+
 	// Parse HTTP headers to find Host
 	var host string
 	for {
 		line, err := reader.ReadString('\n')
-		if err != nil || line == "\r\n" || line == "\n" {
+		if err != nil {
+			log.Printf("HTTP: Failed to read header line: %v", err)
+			return
+		}
+
+		requestBuffer.WriteString(line)
+
+		if line == "\r\n" || line == "\n" {
 			break
 		}
-		if strings.HasPrefix(strings.ToLower(line), "host:") {
+		if host == "" && strings.HasPrefix(strings.ToLower(line), "host:") {
 			host = strings.TrimSpace(strings.SplitN(line, ":", 2)[1])
-			break
 		}
 	}
 
@@ -241,7 +251,8 @@ func (p *TransparentProxy) handleHTTP(clientConn net.Conn) {
 
 	// Forward connection
 	log.Printf("HTTP: Allowed %s", host)
-	p.forwardConnection(clientConn, origDst, []byte(requestLine))
+	bufferedConn := newBufferedConn(clientConn, reader)
+	p.forwardConnection(bufferedConn, origDst, requestBuffer.Bytes())
 }
 
 // handleHTTPS handles HTTPS connections with SNI inspection
@@ -332,17 +343,58 @@ func (p *TransparentProxy) forwardConnection(clientConn net.Conn, destAddr strin
 	go func() {
 		defer wg.Done()
 		io.Copy(destConn, clientConn)
-		destConn.(*net.TCPConn).CloseWrite()
+		closeWrite(destConn)
 	}()
 
 	// Destination -> Client
 	go func() {
 		defer wg.Done()
 		io.Copy(clientConn, destConn)
-		clientConn.(*net.TCPConn).CloseWrite()
+		closeWrite(clientConn)
 	}()
 
 	wg.Wait()
+}
+
+// closeWrite attempts to half-close the connection if supported
+func closeWrite(conn net.Conn) {
+	type closeWriter interface {
+		CloseWrite() error
+	}
+
+	if cw, ok := conn.(closeWriter); ok {
+		cw.CloseWrite()
+	}
+}
+
+// bufferedConn ensures data already read via bufio.Reader is still forwarded
+type bufferedConn struct {
+	net.Conn
+	reader *bufio.Reader
+}
+
+func newBufferedConn(conn net.Conn, reader *bufio.Reader) net.Conn {
+	if reader == nil {
+		return conn
+	}
+	return &bufferedConn{
+		Conn:   conn,
+		reader: reader,
+	}
+}
+
+func (c *bufferedConn) Read(p []byte) (int, error) {
+	if c.reader != nil {
+		return c.reader.Read(p)
+	}
+	return c.Conn.Read(p)
+}
+
+func (c *bufferedConn) CloseWrite() error {
+	if cw, ok := c.Conn.(interface{ CloseWrite() error }); ok {
+		return cw.CloseWrite()
+	}
+	return nil
 }
 
 // isBlocked checks if a domain is in the blocklist
