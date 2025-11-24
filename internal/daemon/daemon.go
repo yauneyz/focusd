@@ -104,14 +104,21 @@ func (d *Daemon) Run() error {
 
 // applyRules applies both DNS and nftables blocking rules
 func (d *Daemon) applyRules() error {
+	// Load blocklist (either from config or external file)
+	domains, err := d.cfg.LoadBlocklist()
+	if err != nil {
+		return fmt.Errorf("loading blocklist: %w", err)
+	}
+	log.Printf("Loaded %d domains from blocklist", len(domains))
+
 	// Apply DNS rules
-	if err := d.dnsMgr.ApplyRules(d.cfg.BlockedDomains); err != nil {
+	if err := d.dnsMgr.ApplyRules(domains); err != nil {
 		return fmt.Errorf("applying DNS rules: %w", err)
 	}
-	log.Printf("DNS rules applied for %d domains", len(d.cfg.BlockedDomains))
+	log.Printf("DNS rules applied for %d domains", len(domains))
 
 	// Resolve domains to IPs
-	ips, err := d.resolver.Resolve(d.cfg.BlockedDomains)
+	ips, err := d.resolver.Resolve(domains)
 	if err != nil {
 		return fmt.Errorf("resolving domains: %w", err)
 	}
@@ -144,8 +151,14 @@ func (d *Daemon) removeRules() error {
 
 // updateRules updates the nftables rules with fresh IP resolutions
 func (d *Daemon) updateRules() error {
+	// Load blocklist (either from config or external file)
+	domains, err := d.cfg.LoadBlocklist()
+	if err != nil {
+		return fmt.Errorf("loading blocklist: %w", err)
+	}
+
 	// Resolve domains to IPs
-	ips, err := d.resolver.Resolve(d.cfg.BlockedDomains)
+	ips, err := d.resolver.Resolve(domains)
 	if err != nil {
 		return fmt.Errorf("resolving domains: %w", err)
 	}

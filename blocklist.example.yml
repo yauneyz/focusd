@@ -1,0 +1,41 @@
+# focusd blocklist configuration
+# This file contains the list of domains to block
+#
+# Default location: ~/.config/focusd/blocklist.yml
+#
+# Edit this file to add or remove domains you want to block.
+# After editing, reload the focusd service to apply changes:
+#   sudo systemctl reload focusd
+
+domains:
+  # Social media
+  - youtube.com
+  - twitter.com
+  - x.com
+  - reddit.com
+  - facebook.com
+  - instagram.com
+  - tiktok.com
+  - snapchat.com
+  - linkedin.com
+
+  # Entertainment
+  - netflix.com
+  - twitch.tv
+  - hulu.com
+  - disneyplus.com
+
+  # News (optional)
+  # - news.ycombinator.com
+  # - theguardian.com
+  # - nytimes.com
+
+  # Gaming (optional)
+  # - steampowered.com
+  # - epicgames.com
+  # - discord.com
+
+# Notes:
+# - Subdomains are automatically blocked (e.g., blocking youtube.com also blocks www.youtube.com, m.youtube.com, etc.)
+# - Lines starting with # are comments and will be ignored
+# - Each domain should be on its own line with a leading dash (-)

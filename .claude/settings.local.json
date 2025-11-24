@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(go get:*)",
-      "Bash(go build:*)"
+      "Bash(go build:*)",
+      "Bash(./result/bin/focusd:*)",
+      "Bash(systemctl status:*)"
     ],
     "deny": [],
     "ask": []
