@@ -8,11 +8,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.yauneyz.com/focusd/internal/config"
-	"github.yauneyz.com/focusd/internal/dns"
-	"github.yauneyz.com/focusd/internal/nft"
-	"github.yauneyz.com/focusd/internal/resolver"
-	"github.yauneyz.com/focusd/internal/state"
+	"focusd/internal/config"
+	"focusd/internal/dns"
+	"focusd/internal/nft"
+	"focusd/internal/proxy"
+	"focusd/internal/resolver"
+	"focusd/internal/state"
 )
 
 // Daemon is the main focusd daemon
@@ -22,6 +23,7 @@ type Daemon struct {
 	resolver *resolver.Resolver
 	nftMgr   *nft.Manager
 	dnsMgr   *dns.Manager
+	proxy    *proxy.TransparentProxy
 }
 
 // New creates a new Daemon instance
@@ -102,7 +104,7 @@ func (d *Daemon) Run() error {
 	}
 }
 
-// applyRules applies both DNS and nftables blocking rules
+// applyRules applies DNS blocking, IP blocking, and transparent proxy
 func (d *Daemon) applyRules() error {
 	// Load blocklist (either from config or external file)
 	domains, err := d.cfg.LoadBlocklist()
@@ -111,7 +113,7 @@ func (d *Daemon) applyRules() error {
 	}
 	log.Printf("Loaded %d domains from blocklist", len(domains))
 
-	// Apply DNS rules
+	// Apply DNS rules (first line of defense)
 	if err := d.dnsMgr.ApplyRules(domains); err != nil {
 		return fmt.Errorf("applying DNS rules: %w", err)
 	}
@@ -124,23 +126,53 @@ func (d *Daemon) applyRules() error {
 	}
 	log.Printf("Resolved %d IP addresses", len(ips))
 
-	// Apply nftables rules
+	// Apply nftables IP blocking rules
 	if err := d.nftMgr.ApplyRules(ips); err != nil {
 		return fmt.Errorf("applying nftables rules: %w", err)
 	}
 	log.Println("nftables rules applied")
 
+	// Start transparent proxy (catches DNS-over-HTTPS bypass attempts)
+	d.proxy = proxy.New(domains)
+	if err := d.proxy.Start(); err != nil {
+		return fmt.Errorf("starting transparent proxy: %w", err)
+	}
+	log.Println("Transparent proxy started")
+
+	// Enable transparent proxy nftables rules (TPROXY)
+	if err := d.nftMgr.EnableTransparentProxy(proxy.HTTPPort, proxy.HTTPSPort); err != nil {
+		// Try to clean up proxy if nftables fails
+		d.proxy.Stop()
+		d.proxy = nil
+		return fmt.Errorf("enabling transparent proxy rules: %w", err)
+	}
+	log.Println("Transparent proxy nftables rules enabled")
+
 	return nil
 }
 
-// removeRules removes both DNS and nftables blocking rules
+// removeRules removes DNS blocking, IP blocking, and transparent proxy
 func (d *Daemon) removeRules() error {
+	// Stop transparent proxy
+	if d.proxy != nil {
+		log.Println("Stopping transparent proxy...")
+		if err := d.proxy.Stop(); err != nil {
+			log.Printf("Warning: error stopping proxy: %v", err)
+		}
+		d.proxy = nil
+	}
+
+	// Disable transparent proxy nftables rules
+	if err := d.nftMgr.DisableTransparentProxy(); err != nil {
+		log.Printf("Warning: error disabling transparent proxy rules: %v", err)
+	}
+
 	// Remove DNS rules
 	if err := d.dnsMgr.RemoveRules(); err != nil {
 		log.Printf("Warning: error removing DNS rules: %v", err)
 	}
 
-	// Remove nftables rules
+	// Remove nftables IP blocking rules
 	if err := d.nftMgr.RemoveRules(); err != nil {
 		log.Printf("Warning: error removing nftables rules: %v", err)
 	}

@@ -5,10 +5,10 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.yauneyz.com/focusd/internal/config"
-	"github.yauneyz.com/focusd/internal/daemon"
-	"github.yauneyz.com/focusd/internal/state"
-	"github.yauneyz.com/focusd/internal/usbkey"
+	"focusd/internal/config"
+	"focusd/internal/daemon"
+	"focusd/internal/state"
+	"focusd/internal/usbkey"
 )
 
 var (

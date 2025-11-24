@@ -1,4 +1,4 @@
-module github.yauneyz.com/focusd
+module focusd
 
 go 1.25.3
 

@@ -1,8 +1,10 @@
 package nft
 
 import (
+	"bytes"
 	"fmt"
 	"net"
+	"os/exec"
 
 	"github.com/google/nftables"
 	"github.com/google/nftables/expr"
@@ -133,4 +135,152 @@ func (m *Manager) UpdateRules(ips []net.IP) error {
 		return err
 	}
 	return m.ApplyRules(ips)
+}
+
+// EnableTransparentProxy sets up nftables rules for transparent proxying
+// This redirects HTTP and HTTPS traffic to the transparent proxy ports
+func (m *Manager) EnableTransparentProxy(httpPort, httpsPort int) error {
+	// Use nft command-line tool for TPROXY setup as it's complex
+	// The nftables Go library doesn't have good TPROXY support
+
+	rules := fmt.Sprintf(`
+table inet focusd_proxy {
+	chain prerouting {
+		type filter hook prerouting priority mangle; policy accept;
+
+		# Skip local traffic
+		ip daddr 127.0.0.0/8 return
+		ip6 daddr ::1/128 return
+
+		# Skip private networks
+		ip daddr 10.0.0.0/8 return
+		ip daddr 172.16.0.0/12 return
+		ip daddr 192.168.0.0/16 return
+
+		# Intercept HTTP traffic
+		tcp dport 80 tproxy ip to 127.0.0.1:%d mark set 1 accept
+		tcp dport 80 tproxy ip6 to [::1]:%d mark set 1 accept
+
+		# Intercept HTTPS traffic
+		tcp dport 443 tproxy ip to 127.0.0.1:%d mark set 1 accept
+		tcp dport 443 tproxy ip6 to [::1]:%d mark set 1 accept
+
+		# Block QUIC (HTTP/3) to force TCP fallback
+		udp dport 443 drop
+	}
+
+	chain output {
+		type route hook output priority mangle; policy accept;
+
+		# Skip proxy's own outbound connections (marked with fwmark 50)
+		meta mark 50 return
+
+		# Skip local traffic
+		ip daddr 127.0.0.0/8 return
+		ip6 daddr ::1/128 return
+
+		# Skip private networks
+		ip daddr 10.0.0.0/8 return
+		ip daddr 172.16.0.0/12 return
+		ip daddr 192.168.0.0/16 return
+
+		# Intercept HTTP from local machine
+		tcp dport 80 mark set 1 accept
+
+		# Intercept HTTPS from local machine
+		tcp dport 443 mark set 1 accept
+
+		# Block QUIC
+		udp dport 443 drop
+	}
+
+	chain output_nat {
+		type nat hook output priority -100; policy accept;
+
+		# Skip proxy's own outbound connections
+		meta mark 50 return
+
+		# Skip local traffic
+		ip daddr 127.0.0.0/8 return
+		ip6 daddr ::1/128 return
+
+		# Skip private networks
+		ip daddr 10.0.0.0/8 return
+		ip daddr 172.16.0.0/12 return
+		ip daddr 192.168.0.0/16 return
+
+		# Redirect locally-generated HTTP to proxy
+		tcp dport 80 redirect to :%d
+
+		# Redirect locally-generated HTTPS to proxy
+		tcp dport 443 redirect to :%d
+	}
+}
+`, httpPort, httpPort, httpsPort, httpsPort, httpPort, httpsPort)
+
+	// Apply rules using nft -f
+	cmd := exec.Command("nft", "-f", "-")
+	cmd.Stdin = bytes.NewBufferString(rules)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("applying transparent proxy rules: %w (stderr: %s)", err, stderr.String())
+	}
+
+	// Set up routing for marked packets
+	if err := setupRouting(); err != nil {
+		return fmt.Errorf("setting up routing: %w", err)
+	}
+
+	return nil
+}
+
+// DisableTransparentProxy removes transparent proxy rules
+func (m *Manager) DisableTransparentProxy() error {
+	// Delete the proxy table
+	cmd := exec.Command("nft", "delete", "table", "inet", "focusd_proxy")
+	if err := cmd.Run(); err != nil {
+		// If table doesn't exist, that's OK
+		return nil
+	}
+
+	// Clean up routing
+	cleanupRouting()
+
+	return nil
+}
+
+// setupRouting configures routing policy for marked packets
+func setupRouting() error {
+	// IPv4: Add routing rule and route for marked packets
+	commands := [][]string{
+		{"ip", "rule", "add", "fwmark", "1", "lookup", "100"},
+		{"ip", "route", "add", "local", "0.0.0.0/0", "dev", "lo", "table", "100"},
+		{"ip", "-6", "rule", "add", "fwmark", "1", "lookup", "100"},
+		{"ip", "-6", "route", "add", "local", "::/0", "dev", "lo", "table", "100"},
+	}
+
+	for _, cmdArgs := range commands {
+		cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
+		// Ignore errors - rules might already exist
+		cmd.Run()
+	}
+
+	return nil
+}
+
+// cleanupRouting removes routing policy
+func cleanupRouting() {
+	commands := [][]string{
+		{"ip", "rule", "del", "fwmark", "1", "lookup", "100"},
+		{"ip", "route", "del", "local", "0.0.0.0/0", "dev", "lo", "table", "100"},
+		{"ip", "-6", "rule", "del", "fwmark", "1", "lookup", "100"},
+		{"ip", "-6", "route", "del", "local", "::/0", "dev", "lo", "table", "100"},
+	}
+
+	for _, cmdArgs := range commands {
+		cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
+		cmd.Run() // Ignore errors
+	}
 }

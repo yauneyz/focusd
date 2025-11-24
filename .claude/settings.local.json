@@ -4,7 +4,10 @@
       "Bash(go get:*)",
       "Bash(go build:*)",
       "Bash(./result/bin/focusd:*)",
-      "Bash(systemctl status:*)"
+      "Bash(systemctl status:*)",
+      "Bash(dig:*)",
+      "Bash(host:*)",
+      "Bash(timeout 3 curl:*)"
     ],
     "deny": [],
     "ask": []
