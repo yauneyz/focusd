@@ -9,7 +9,8 @@
       "Bash(host:*)",
       "Bash(timeout 3 curl:*)",
       "Bash(sudo journalctl:*)",
-      "Bash(sudo nft:*)"
+      "Bash(sudo nft:*)",
+      "Bash(sudo ss:*)"
     ],
     "deny": [],
     "ask": []

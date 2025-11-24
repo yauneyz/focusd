@@ -253,6 +253,9 @@ func (m *Manager) DisableTransparentProxy() error {
 
 // setupRouting configures routing policy for marked packets
 func setupRouting() error {
+	// First, remove any existing rules to prevent duplicates
+	cleanupRouting()
+
 	// IPv4: Add routing rule and route for marked packets
 	commands := [][]string{
 		{"ip", "rule", "add", "fwmark", "1", "lookup", "100"},
@@ -263,7 +266,7 @@ func setupRouting() error {
 
 	for _, cmdArgs := range commands {
 		cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
-		// Ignore errors - rules might already exist
+		// Ignore errors - rules might fail if table/device doesn't exist
 		cmd.Run()
 	}
 
@@ -271,15 +274,35 @@ func setupRouting() error {
 }
 
 // cleanupRouting removes routing policy
+// Runs multiple times to handle duplicate rules
 func cleanupRouting() {
-	commands := [][]string{
+	ruleCommands := [][]string{
 		{"ip", "rule", "del", "fwmark", "1", "lookup", "100"},
-		{"ip", "route", "del", "local", "0.0.0.0/0", "dev", "lo", "table", "100"},
 		{"ip", "-6", "rule", "del", "fwmark", "1", "lookup", "100"},
+	}
+
+	// Remove rules (may be duplicates, so try multiple times)
+	for i := 0; i < 5; i++ {
+		anySuccess := false
+		for _, cmdArgs := range ruleCommands {
+			cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
+			if cmd.Run() == nil {
+				anySuccess = true
+			}
+		}
+		// Stop if no rules were deleted
+		if !anySuccess {
+			break
+		}
+	}
+
+	// Remove routes
+	routeCommands := [][]string{
+		{"ip", "route", "del", "local", "0.0.0.0/0", "dev", "lo", "table", "100"},
 		{"ip", "-6", "route", "del", "local", "::/0", "dev", "lo", "table", "100"},
 	}
 
-	for _, cmdArgs := range commands {
+	for _, cmdArgs := range routeCommands {
 		cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 		cmd.Run() // Ignore errors
 	}
