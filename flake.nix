@@ -18,7 +18,7 @@
 
           src = ./.;
 
-          vendorHash = "sha256-aA+9W/u/A/LfaI87SebdYzXoZLgLYvNIECJnU1EWgYo=";
+          vendorHash = "sha256-4MwBYiQBii4lE55qmGfsp/p9lqj1JlulGykd605+swg=";
 
           # Build only the main binary
           subPackages = [ "cmd/focusd" ];
