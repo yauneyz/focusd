@@ -119,18 +119,21 @@ func (d *Daemon) applyRules() error {
 	}
 	log.Printf("DNS rules applied for %d domains", len(domains))
 
-	// Resolve domains to IPs
+	// Resolve domains to IPs and apply IP blocking
+	// (This is optional - DNS + transparent proxy are the main defenses)
 	ips, err := d.resolver.Resolve(domains)
 	if err != nil {
-		return fmt.Errorf("resolving domains: %w", err)
-	}
-	log.Printf("Resolved %d IP addresses", len(ips))
+		log.Printf("Warning: error resolving domains: %v", err)
+	} else {
+		log.Printf("Resolved %d IP addresses", len(ips))
 
-	// Apply nftables IP blocking rules
-	if err := d.nftMgr.ApplyRules(ips); err != nil {
-		return fmt.Errorf("applying nftables rules: %w", err)
+		// Apply nftables IP blocking rules
+		if err := d.nftMgr.ApplyRules(ips); err != nil {
+			log.Printf("Warning: error applying nftables IP rules: %v", err)
+		} else {
+			log.Println("nftables IP blocking rules applied")
+		}
 	}
-	log.Println("nftables rules applied")
 
 	// Start transparent proxy (catches DNS-over-HTTPS bypass attempts)
 	d.proxy = proxy.New(domains)
