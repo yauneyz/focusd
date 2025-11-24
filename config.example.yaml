@@ -1,0 +1,29 @@
+# focusd configuration file
+# Copy this to /etc/focusd/config.yaml and customize
+
+# List of domains to block
+# All subdomains will also be blocked (e.g., blocking youtube.com also blocks www.youtube.com, m.youtube.com, etc.)
+blockedDomains:
+  - youtube.com
+  - twitter.com
+  - reddit.com
+  - facebook.com
+  - instagram.com
+  - tiktok.com
+  - netflix.com
+  - twitch.tv
+
+# How often to refresh IP addresses (in minutes)
+# Domain IPs can change over time, so we periodically re-resolve them
+refreshIntervalMinutes: 60
+
+# Glob pattern for finding the USB key file
+# The default assumes the USB is automounted under /run/media/
+# with a directory named FOCUSD containing a file named focusd.key
+usbKeyPath: "/run/media/*/FOCUSD/focusd.key"
+
+# Path to the file containing the expected SHA256 hash of the USB key
+tokenHashPath: "/etc/focusd/token.sha256"
+
+# Path where dnsmasq configuration will be written
+dnsmasqConfigPath: "/run/focusd/dnsmasq.conf"

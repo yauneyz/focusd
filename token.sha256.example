@@ -1,0 +1,14 @@
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  focusd.key
+
+# This is an example file showing the format of token.sha256
+# DO NOT use this actual hash - it's the SHA256 of an empty file
+#
+# To create your own USB key:
+# 1. Format a USB drive and create a folder named FOCUSD
+# 2. Generate a random key file:
+#    dd if=/dev/urandom of=/path/to/usb/FOCUSD/focusd.key bs=32 count=1
+# 3. Generate the hash file:
+#    sha256sum /path/to/usb/FOCUSD/focusd.key > token.sha256
+# 4. Copy token.sha256 to /etc/focusd/token.sha256
+#
+# See docs/USB_KEY_SETUP.md for detailed instructions
