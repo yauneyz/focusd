@@ -43,7 +43,7 @@ in
 
     usbKeyPath = mkOption {
       type = types.str;
-      default = "/run/media/*/FOCUSD/focusd.key";
+      default = "/run/media/zac/*/FOCUSD/focusd.key";
       description = "Glob pattern for finding the USB key file";
     };
   };

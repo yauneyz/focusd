@@ -20,7 +20,7 @@ refreshIntervalMinutes: 60
 # Glob pattern for finding the USB key file
 # The default assumes the USB is automounted under /run/media/
 # with a directory named FOCUSD containing a file named focusd.key
-usbKeyPath: "/run/media/*/FOCUSD/focusd.key"
+usbKeyPath: "/run/media/*/*/FOCUSD/focusd.key"
 
 # Path to the file containing the expected SHA256 hash of the USB key
 tokenHashPath: "/etc/focusd/token.sha256"

@@ -43,7 +43,7 @@ func DefaultConfig() *Config {
 		BlockedDomains:         []string{},
 		BlocklistPath:          "~/.config/focusd/blocklist.yml",
 		RefreshIntervalMinutes: 60,
-		USBKeyPath:             "/run/media/*/FOCUSD/focusd.key",
+		USBKeyPath:             "/run/media/zac/*/FOCUSD/focusd.key",
 		TokenHashPath:          "/etc/focusd/token.sha256",
 		DnsmasqConfigPath:      "/run/focusd/dnsmasq.conf",
 	}
@@ -109,11 +109,18 @@ func (c *Config) LoadBlocklist() ([]string, error) {
 
 	// Otherwise load from blocklist file
 	if c.BlocklistPath == "" {
-		return nil, fmt.Errorf("no blocklist path configured")
+		return []string{}, nil // No blocklist configured, return empty list
 	}
 
 	data, err := os.ReadFile(c.BlocklistPath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			// File doesn't exist yet - this is OK, user needs to create it
+			fmt.Printf("Notice: Blocklist file not found at %s\n", c.BlocklistPath)
+			fmt.Printf("Create this file with domains to block, then reload the service.\n")
+			fmt.Printf("See blocklist.example.yml for format.\n")
+			return []string{}, nil
+		}
 		return nil, fmt.Errorf("reading blocklist file %s: %w", c.BlocklistPath, err)
 	}
 
@@ -123,7 +130,8 @@ func (c *Config) LoadBlocklist() ([]string, error) {
 	}
 
 	if len(blocklist.Domains) == 0 {
-		return nil, fmt.Errorf("blocklist file contains no domains")
+		fmt.Printf("Warning: Blocklist file %s contains no domains\n", c.BlocklistPath)
+		return []string{}, nil
 	}
 
 	return blocklist.Domains, nil
