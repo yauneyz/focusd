@@ -1,7 +1,7 @@
 # focusd blocklist configuration
 # This file contains the list of domains to block
 #
-# Default location: ~/.config/focusd/blocklist.yml
+# Default location: /etc/blocklist.yml
 #
 # Edit this file to add or remove domains you want to block.
 # After editing, reload the focusd service to apply changes:

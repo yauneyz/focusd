@@ -16,7 +16,7 @@ type Config struct {
 	BlockedDomains []string `yaml:"blockedDomains,omitempty"`
 
 	// BlocklistPath is the path to a separate blocklist file
-	// Default: ~/.config/focusd/blocklist.yml
+	// Default: /etc/blocklist.yml
 	BlocklistPath string `yaml:"blocklistPath,omitempty"`
 
 	// RefreshIntervalMinutes specifies how often to refresh IP addresses
@@ -41,7 +41,7 @@ type Blocklist struct {
 func DefaultConfig() *Config {
 	return &Config{
 		BlockedDomains:         []string{},
-		BlocklistPath:          "~/.config/focusd/blocklist.yml",
+		BlocklistPath:          "/etc/blocklist.yml",
 		RefreshIntervalMinutes: 60,
 		USBKeyPath:             "/run/media/zac/*/FOCUSD/focusd.key",
 		TokenHashPath:          "/etc/focusd/token.sha256",
@@ -63,7 +63,7 @@ func Load(path string) (*Config, error) {
 
 	// If BlocklistPath wasn't set in config, use default
 	if cfg.BlocklistPath == "" {
-		cfg.BlocklistPath = "~/.config/focusd/blocklist.yml"
+		cfg.BlocklistPath = "/etc/blocklist.yml"
 	}
 
 	// Expand home directory in BlocklistPath
