@@ -56,15 +56,9 @@ var daemonCmd = &cobra.Command{
 
 var enableCmd = &cobra.Command{
 	Use:   "enable",
-	Short: "Enable blocking (requires USB key)",
-	Long:  `Enables the distraction blocker. Requires the USB key to be present.`,
+	Short: "Enable blocking",
+	Long:  `Enables the distraction blocker.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Verify USB key
-		verifier := usbkey.New(cfg.USBKeyPath, cfg.TokenHashPath)
-		if err := verifier.Verify(); err != nil {
-			return fmt.Errorf("USB key verification failed: %w", err)
-		}
-
 		// Update state
 		st := state.New(state.DefaultStatePath)
 		if err := st.SetEnabled(true); err != nil {
@@ -72,7 +66,6 @@ var enableCmd = &cobra.Command{
 		}
 
 		fmt.Println("Blocker enabled successfully")
-		fmt.Println("Run 'systemctl reload focusd' or send SIGHUP to apply changes")
 		return nil
 	},
 }
@@ -95,7 +88,6 @@ var disableCmd = &cobra.Command{
 		}
 
 		fmt.Println("Blocker disabled successfully")
-		fmt.Println("Run 'systemctl reload focusd' or send SIGHUP to apply changes")
 		return nil
 	},
 }
